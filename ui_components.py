@@ -234,50 +234,62 @@ def render_standings(rows: list, players: dict):
 
     rank_icons = {1: "🥇", 2: "🥈", 3: "🥉"}
 
-    header = """
-    <table class="standings-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Player</th>
-          <th>Seed</th>
-          <th>Matches</th>
-          <th>W</th>
-          <th>L</th>
-          <th>Sets Won</th>
-          <th>Sets Lost</th>
-        </tr>
-      </thead>
-      <tbody>
-    """
+    # Build one big HTML string with inline styles (no CSS classes needed)
+    html_rows = ""
+    for i, r in enumerate(rows):
+        rank  = r.get("display_rank", i + 1)
+        icon  = rank_icons.get(rank, "")
+        seed  = r["seed"]
+        name  = players.get(seed, r.get("name", seed))
 
-    rows_html = ""
-    for r in rows:
-        rank = r.get("display_rank", "–")
-        icon = rank_icons.get(rank, "")
-        seed = r["seed"]
-        name = players.get(seed, r["name"])
-        
         if rank == 1:
-            rank_class = "rank-gold"
+            rank_color = "#ffd700"
         elif rank == 2:
-            rank_class = "rank-silver"
+            rank_color = "#c0c0c0"
         elif rank == 3:
-            rank_class = "rank-bronze"
+            rank_color = "#cd7f32"
         else:
-            rank_class = "rank-normal"
+            rank_color = "#7986cb"
 
-        rows_html += f"""
-        <tr>
-          <td><span class="{rank_class}">{icon} {rank}</span></td>
-          <td style="font-weight:600;color:#e8eaf6;">{name}</td>
-          <td style="color:#546e7a;">#{seed}</td>
-          <td style="color:#7986cb;">{r['matches']}</td>
-          <td style="color:#4caf50;font-weight:600;">{r['wins']}</td>
-          <td style="color:#ef5350;">{r['losses']}</td>
-          <td style="color:#4fc3f7;">{r['sets_won']}</td>
-          <td style="color:#78909c;">{r['sets_lost']}</td>
-        </tr>
-        """
+        row_bg = "#111827" if i % 2 == 0 else "#0d1225"
 
-    st.markdown(header + rows_html + "</tbody></table>", unsafe_allow_html=True)
+        html_rows += (
+            f'<tr style="background:{row_bg};">'
+            f'<td style="padding:9px 12px;border-bottom:1px solid #1e2d4f;">'
+            f'  <span style="color:{rank_color};font-weight:700;">{icon} {rank}</span>'
+            f'</td>'
+            f'<td style="padding:9px 12px;border-bottom:1px solid #1e2d4f;'
+            f'           font-weight:600;color:#e8eaf6;">{name}</td>'
+            f'<td style="padding:9px 12px;border-bottom:1px solid #1e2d4f;color:#546e7a;">#{seed}</td>'
+            f'<td style="padding:9px 12px;border-bottom:1px solid #1e2d4f;color:#7986cb;text-align:center;">{r["matches"]}</td>'
+            f'<td style="padding:9px 12px;border-bottom:1px solid #1e2d4f;color:#4caf50;font-weight:700;text-align:center;">{r["wins"]}</td>'
+            f'<td style="padding:9px 12px;border-bottom:1px solid #1e2d4f;color:#ef5350;text-align:center;">{r["losses"]}</td>'
+            f'<td style="padding:9px 12px;border-bottom:1px solid #1e2d4f;color:#4fc3f7;text-align:center;">{r["sets_won"]}</td>'
+            f'<td style="padding:9px 12px;border-bottom:1px solid #1e2d4f;color:#78909c;text-align:center;">{r["sets_lost"]}</td>'
+            f'</tr>'
+        )
+
+    th_style = (
+        'style="background:#1565c0;color:#fff;padding:10px 12px;'
+        'text-align:left;font-size:0.82rem;text-transform:uppercase;'
+        'letter-spacing:1px;font-weight:600;"'
+    )
+
+    html = (
+        '<div style="overflow-x:auto;">'
+        '<table style="width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:0.9rem;">'
+        '<thead><tr>'
+        f'<th {th_style}>#</th>'
+        f'<th {th_style}>Player</th>'
+        f'<th {th_style}>Seed</th>'
+        f'<th {th_style} style="text-align:center;">Matches</th>'
+        f'<th {th_style} style="text-align:center;">W</th>'
+        f'<th {th_style} style="text-align:center;">L</th>'
+        f'<th {th_style} style="text-align:center;">Sets W</th>'
+        f'<th {th_style} style="text-align:center;">Sets L</th>'
+        '</tr></thead>'
+        f'<tbody>{html_rows}</tbody>'
+        '</table></div>'
+    )
+
+    st.markdown(html, unsafe_allow_html=True)
