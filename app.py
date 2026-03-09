@@ -363,7 +363,7 @@ with tab_live:
             cols = st.columns(min(len(pending), 3))
             for i, m in enumerate(pending[:6]):
                 with cols[i % 3]:
-                    render_match_card(m, show_score=True)
+                    render_match_card(m, players=t["players"], show_score=True)
         
         st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
         
