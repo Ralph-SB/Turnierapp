@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime
 from logic import TournamentEngine
-from ui_components import render_bracket, render_standings, render_match_card
+from ui_components import render_bracket, render_standings, render_match_card, render_schedule
 
 # ── Page config ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -309,8 +309,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Main tabs ─────────────────────────────────────────────────────────────────
-tab_live, tab_bracket, tab_admin = st.tabs([
-    "📊 Live Standings", "🏆 Tournament Bracket", "⚙️ Admin"
+tab_live, tab_schedule, tab_bracket, tab_admin = st.tabs([
+    "📊 Live Standings", "📅 Spielplan", "🏆 Bracket", "⚙️ Admin"
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -372,7 +372,60 @@ with tab_live:
         render_standings(engine.compute_standings(), t["players"])
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 2 – BRACKET
+# TAB 2 – SPIELPLAN
+# ═══════════════════════════════════════════════════════════════════════════════
+with tab_schedule:
+    t = st.session_state.tournament
+    if not t:
+        st.info("Starte das Turnier im Admin-Tab.")
+    else:
+        engine = TournamentEngine(t)
+
+        # Zeitplan-Legende
+        st.markdown("""
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
+          <div style="background:#111827;border:1px solid #1e3a5f;border-radius:8px;
+                      padding:8px 14px;font-size:0.85rem;">
+            ⏰ <b style="color:#4fc3f7;">Spielzeiten</b>
+            &nbsp;|&nbsp;
+            <span style="background:#1e88e5;color:#fff;border-radius:4px;
+                  padding:1px 7px;font-size:0.75rem;font-weight:700;">Court 1</span>
+            &nbsp;
+            <span style="background:#7b1fa2;color:#fff;border-radius:4px;
+                  padding:1px 7px;font-size:0.75rem;font-weight:700;">Court 2</span>
+            &nbsp;&nbsp;
+            <span style="color:#546e7a;font-size:0.8rem;">
+            Pause zwischen Runden · Jedes Spiel ~25 Min
+            </span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Tagesübersicht
+        col_info = st.columns(4)
+        for col, (rnd, start, end) in zip(col_info, [
+            ("Runde 1", "10:00", "11:45"),
+            ("Runde 2", "12:00", "13:45"),
+            ("Runde 3", "14:00", "15:45"),
+            ("Finale",  "16:00", "17:30"),
+        ]):
+            col.markdown(
+                f'<div style="background:#111827;border:1px solid #1e3a5f;'
+                f'border-radius:10px;padding:10px;text-align:center;">'
+                f'<div style="font-family:Rajdhani,sans-serif;color:#4fc3f7;'
+                f'font-weight:700;font-size:0.95rem;">{rnd}</div>'
+                f'<div style="color:#e8eaf6;font-size:1rem;font-weight:600;">'
+                f'{start} – {end}</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+
+        st.markdown("<hr style='border-color:#1e2d4f;margin:1rem 0;'>",
+                    unsafe_allow_html=True)
+        render_schedule(t, engine)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 3 – BRACKET
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_bracket:
     t = st.session_state.tournament
@@ -402,7 +455,7 @@ with tab_bracket:
         render_bracket(t, engine, st.session_state.edit_mode, save_state)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 3 – ADMIN
+# TAB 4 – ADMIN
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_admin:
     # Password gate
@@ -423,80 +476,90 @@ with tab_admin:
         t = st.session_state.tournament
         
         if not t:
-            st.markdown("### Enter 16 Players (seeded #1 = strongest)")
-            
+            st.markdown("### Spieler eingeben")
+            st.markdown(
+                "Gib die Spieler **nach Stärke sortiert** ein (#1 = stärkster). "
+                "Nicht belegte Plätze bleiben leer → werden als **Freilos (BYE)** behandelt."
+            )
+
+            # Anzahl Spieler wählen
+            num_players = st.slider(
+                "Anzahl Spieler", min_value=4, max_value=16, value=16, step=1
+            )
+
             default_names = [
                 "Max Müller", "Anna Schmidt", "Tom Weber", "Lisa Fischer",
                 "Jan Bauer", "Sara Meyer", "Felix Wagner", "Julia Schulz",
                 "Lukas Hoffmann", "Marie Koch", "Nico Richter", "Lena Klein",
                 "Paul Wolf", "Mia Schröder", "Leon Neumann", "Lea Braun"
             ]
-            
+
             players = []
             cols = st.columns(2)
-            for i in range(16):
+            for i in range(num_players):
                 with cols[i % 2]:
                     name = st.text_input(
-                        f"#{i+1} Seed",
-                        value=default_names[i],
+                        f"#{i+1} Setzung",
+                        value=default_names[i] if i < len(default_names) else "",
                         key=f"player_{i}"
                     )
                     players.append(name.strip())
-            
+
             st.markdown("<br>", unsafe_allow_html=True)
-            
-            if st.button("🚀 Start Tournament", type="primary"):
-                if all(players) and len(set(players)) == 16:
+
+            if st.button("🚀 Turnier starten", type="primary"):
+                filled = [p for p in players if p]
+                if len(filled) < 4:
+                    st.error("Mindestens 4 Spieler mit Namen benötigt.")
+                elif len(set(filled)) != len(filled):
+                    st.error("Spielernamen müssen eindeutig sein.")
+                else:
                     engine = TournamentEngine({})
-                    new_t = engine.initialize(players)
+                    new_t = engine.initialize(filled)
                     st.session_state.tournament = new_t
                     save_state(new_t)
-                    st.success("✅ Tournament started!")
+                    st.success(f"✅ Turnier gestartet mit {len(filled)} Spielern!")
                     st.rerun()
-                else:
-                    st.error("Please enter 16 unique player names.")
         else:
-            st.success("✅ Tournament is running!")
+            st.success("✅ Turnier läuft!")
             
             engine = TournamentEngine(t)
-            st.markdown("### Advance Rounds")
-            st.markdown("After all matches in the current round are played, click to generate next round:")
+            st.markdown("### Nächste Runde starten")
+            st.markdown("Wenn alle Spiele der aktuellen Runde beendet sind, die nächste Runde generieren:")
             
             current_round = engine.get_current_round()
-            st.info(f"Current round: **Round {current_round}**")
+            st.info(f"Aktuelle Runde: **Runde {current_round}**")
             
             if engine.can_advance():
-                if st.button("⏭️ Generate Next Round"):
+                if st.button("⏭️ Nächste Runde generieren"):
                     engine.advance_round()
                     st.session_state.tournament = engine.data
                     save_state(engine.data)
-                    st.success("Next round generated!")
+                    st.success("Nächste Runde erstellt!")
                     st.rerun()
             else:
-                st.warning("Complete all matches in current round first.")
+                st.warning("Erst alle Spiele der aktuellen Runde eintragen.")
             
             st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
             
-            # Change admin password
-            with st.expander("🔑 Change Admin Password"):
-                st.info(f"Current password: `{ADMIN_PASSWORD}` (change in app.py line 8)")
+            with st.expander("🔑 Admin-Passwort"):
+                st.info(f"Aktuelles Passwort: `{ADMIN_PASSWORD}` (ändern in app.py Zeile 8)")
             
             st.markdown("<hr class='section-divider'>", unsafe_allow_html=True)
             
-            # Reset
-            with st.expander("⚠️ Danger Zone"):
-                st.warning("This will permanently delete all tournament data!")
-                confirm = st.text_input("Type 'RESET' to confirm")
-                if st.button("🗑️ Reset Tournament"):
+            with st.expander("⚠️ Turnier zurücksetzen"):
+                st.warning("Alle Turnierdaten werden unwiderruflich gelöscht!")
+                confirm = st.text_input("Tippe 'RESET' zur Bestätigung")
+                if st.button("🗑️ Turnier zurücksetzen"):
                     if confirm == "RESET":
                         st.session_state.tournament = {}
                         if os.path.exists(DATA_FILE):
                             os.remove(DATA_FILE)
-                        st.success("Tournament reset.")
+                        st.success("Turnier zurückgesetzt.")
                         st.rerun()
                     else:
-                        st.error("Type 'RESET' to confirm.")
+                        st.error("Bitte 'RESET' eingeben zur Bestätigung.")
         
-        if st.button("🔓 Logout"):
+        if st.button("🔓 Abmelden"):
             st.session_state.admin_pw_ok = False
             st.rerun()
