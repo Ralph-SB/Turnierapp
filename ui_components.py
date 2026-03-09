@@ -314,28 +314,58 @@ def render_schedule(t: dict, engine):
         time_str = m.get("time","")
 
         court_col = "#1e88e5" if court == 1 else "#7b1fa2"
-        status_icon = "✅" if w else "⏳"
-        winner_name = players.get(w, w) if w and w not in ("BYE",) else ""
-        result_str = f"→ {winner_name}" if winner_name else ""
+
+        # Ergebnis aufbauen
+        if w and w not in ("BYE",):
+            winner_name = players.get(w, w)
+            sw1 = m.get("sets_won_p1", 0)
+            sw2 = m.get("sets_won_p2", 0)
+            sets_p1 = m.get("sets_p1", [])
+            sets_p2 = m.get("sets_p2", [])
+
+            # Satz-Chips
+            chips = ""
+            for a, b in zip(sets_p1, sets_p2):
+                bg = "#1b5e20" if a > b else "#1a1f35"
+                col = "#81c784" if a > b else "#546e7a"
+                chips += (f'<span style="background:{bg};color:{col};border-radius:3px;'
+                          f'padding:1px 5px;font-size:0.75rem;font-weight:700;'
+                          f'font-family:monospace;">{a}:{b}</span> ')
+
+            # Satzstand
+            sets_str = f'<span style="color:#4caf50;font-weight:700;">{sw1}</span>' \
+                       f'<span style="color:#546e7a;">:</span>' \
+                       f'<span style="color:#ef5350;font-weight:700;">{sw2}</span>'
+
+            result_html = (
+                f'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">'
+                f'<div style="display:flex;align-items:center;gap:5px;">'
+                f'<span style="font-size:0.75rem;color:#4caf50;">✅</span>'
+                f'<span style="color:#4caf50;font-weight:700;font-size:0.85rem;">{winner_name}</span>'
+                f'<span style="color:#7986cb;font-size:0.8rem;margin-left:3px;">{sets_str} Sätze</span>'
+                f'</div>'
+                f'<div style="display:flex;gap:3px;">{chips}</div>'
+                f'</div>'
+            )
+        else:
+            result_html = '<span style="color:#546e7a;font-size:0.8rem;">⏳ Ausstehend</span>'
 
         st.markdown(
             f'<div style="display:flex;align-items:center;gap:10px;'
             f'background:#111827;border:1px solid #1e2d4f;border-radius:8px;'
-            f'padding:8px 12px;margin:3px 0;">'
+            f'padding:9px 12px;margin:3px 0;">'
             f'<span style="background:{court_col};color:#fff;border-radius:5px;'
             f'padding:3px 9px;font-size:0.78rem;font-weight:700;min-width:72px;'
             f'text-align:center;">Court {court}</span>'
             f'<span style="color:#90caf9;font-weight:700;font-size:0.9rem;'
             f'min-width:48px;">{time_str}</span>'
             f'<span style="color:#e8eaf6;font-size:0.9rem;flex:1;">'
-            f'<b>{p1_name}</b> <span style="color:#546e7a;">#{p1}</span>'
-            f' &nbsp;vs&nbsp; '
-            f'<b>{p2_name}</b> <span style="color:#546e7a;">#{p2}</span></span>'
-            f'<span style="color:#ffd54f;font-size:0.78rem;font-weight:600;'
-            f'min-width:60px;">{m.get("label","")}</span>'
-            f'<span style="min-width:16px;">{status_icon}</span>'
-            f'<span style="color:#4caf50;font-size:0.85rem;font-weight:700;'
-            f'min-width:90px;">{result_str}</span>'
+            f'<b>{p1_name}</b> <span style="color:#546e7a;font-size:0.75rem;">#{p1}</span>'
+            f' <span style="color:#546e7a;">vs</span> '
+            f'<b>{p2_name}</b> <span style="color:#546e7a;font-size:0.75rem;">#{p2}</span></span>'
+            f'<span style="color:#ffd54f;font-size:0.75rem;font-weight:600;'
+            f'min-width:80px;text-align:right;">{m.get("label","")}</span>'
+            f'<div style="min-width:200px;text-align:right;">{result_html}</div>'
             f'</div>',
             unsafe_allow_html=True
         )
